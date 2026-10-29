@@ -4,11 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blaze Form Tracker</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <h1>Blaze Form Tracker</h1>
-  <video id="webcam" autoplay playsinline></video>
-  <canvas id="overlay"></canvas>
+  <button id="startBtn">Start camera</button>
+  <p id="status">Click start when ready.</p>
+
+  <div id="stage">
+    <video id="webcam" playsinline muted></video>
+    <canvas id="overlay"></canvas>
+  </div>
+
   <script type="module" src="script.js"></script>
 </body>
 </html>
