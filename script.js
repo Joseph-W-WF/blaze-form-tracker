@@ -72,6 +72,7 @@ startBtn.addEventListener("click", async () => {
     statusText.textContent = "Starting camera...";
     await startWebcam();
     statusText.textContent = "Ready";
+    detectLoop(); // start the per-frame detect-and-draw loop
   } catch (err) {
     statusText.textContent = "Error: " + err.message;
     startBtn.disabled = false;
