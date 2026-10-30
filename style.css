@@ -29,3 +29,12 @@ body {
 #stats {
   font-size: 1.3rem;
 }
+
+/* Feedback colours for the last rep */
+.good {
+  color: #4caf50;
+}
+
+.bad {
+  color: #ff9800;
+}

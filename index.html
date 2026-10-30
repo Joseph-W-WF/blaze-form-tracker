@@ -10,6 +10,7 @@
   <h1>Blaze Form Tracker</h1>
   <button id="startBtn">Start camera</button>
   <p id="status">Click start when ready.</p>
+  <p>Stand side-on to the camera with your whole body in view.</p>
 
   <div id="stage">
     <video id="webcam" playsinline muted></video>
@@ -20,6 +21,8 @@
   <div id="stats">
     <p>Knee angle: <span id="angleText">--</span></p>
     <p>Reps: <span id="repText">0</span> (position: <span id="stateText">up</span>)</p>
+    <p>Good-form reps: <span id="goodRepText">0</span></p>
+    <p id="feedbackText">Do a squat to get feedback.</p>
   </div>
 
   <script type="module" src="script.js"></script>

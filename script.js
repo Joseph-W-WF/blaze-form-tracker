@@ -12,6 +12,8 @@ const statusText = document.getElementById("status");
 const angleText = document.getElementById("angleText");
 const repText = document.getElementById("repText");
 const stateText = document.getElementById("stateText");
+const goodRepText = document.getElementById("goodRepText");
+const feedbackText = document.getElementById("feedbackText");
 
 // Ignore a leg if any of its joints is less visible than this (0 to 1)
 const MIN_VISIBILITY = 0.5;
@@ -24,8 +26,13 @@ const RIGHT_LEG = { hip: 24, knee: 26, ankle: 28 };
 const DOWN_ANGLE = 110; // below this you are "down"
 const UP_ANGLE = 160;   // above this you are back "up"
 
+// Form rule: the lowest knee angle in a rep must reach this for good depth
+const GOOD_DEPTH_ANGLE = 95;
+
 let squatState = "up";
 let repCount = 0;
+let goodRepCount = 0;
+let lowestAngle = 180; // smallest knee angle seen during the current rep
 
 let poseLandmarker;
 let drawingUtils;
@@ -152,13 +159,38 @@ function showKneeAngle(landmarks) {
 function updateRepCounter(angle) {
   if (squatState === "up" && angle < DOWN_ANGLE) {
     squatState = "down";
-  } else if (squatState === "down" && angle > UP_ANGLE) {
-    squatState = "up";
-    repCount = repCount + 1;
+    lowestAngle = angle; // start tracking the bottom of this rep
+  } else if (squatState === "down") {
+    // Remember the deepest point while we're down
+    if (angle < lowestAngle) {
+      lowestAngle = angle;
+    }
+
+    if (angle > UP_ANGLE) {
+      squatState = "up";
+      repCount = repCount + 1;
+      judgeRep(lowestAngle);
+    }
   }
 
   repText.textContent = repCount;
   stateText.textContent = squatState;
+}
+// Form check, run once at the end of each rep
+function judgeRep(lowest) {
+  const lowestRounded = Math.round(lowest);
+
+  if (lowest <= GOOD_DEPTH_ANGLE) {
+    goodRepCount = goodRepCount + 1;
+    feedbackText.textContent = "Good depth! (lowest " + lowestRounded + "°)";
+    feedbackText.className = "good";
+  } else {
+    feedbackText.textContent =
+      "Go a bit lower - aim for thighs parallel (lowest " + lowestRounded + "°)";
+    feedbackText.className = "bad";
+  }
+
+  goodRepText.textContent = goodRepCount;
 }
 // Runs every frame: detect pose, draw skeleton
 function detectLoop() {
