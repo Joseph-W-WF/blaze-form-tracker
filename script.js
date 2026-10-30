@@ -10,6 +10,8 @@ const ctx = canvas.getContext("2d");
 const startBtn = document.getElementById("startBtn");
 const statusText = document.getElementById("status");
 const angleText = document.getElementById("angleText");
+const repText = document.getElementById("repText");
+const stateText = document.getElementById("stateText");
 
 // Ignore a leg if any of its joints is less visible than this (0 to 1)
 const MIN_VISIBILITY = 0.5;
@@ -17,6 +19,13 @@ const MIN_VISIBILITY = 0.5;
 // MediaPipe landmark numbers for each leg (the person's own left/right)
 const LEFT_LEG = { hip: 23, knee: 25, ankle: 27 };
 const RIGHT_LEG = { hip: 24, knee: 26, ankle: 28 };
+
+// Rep counter thresholds (degrees). The gap between them stops jitter double-counting.
+const DOWN_ANGLE = 110; // below this you are "down"
+const UP_ANGLE = 160;   // above this you are back "up"
+
+let squatState = "up";
+let repCount = 0;
 
 let poseLandmarker;
 let drawingUtils;
@@ -121,22 +130,35 @@ function getKneeAngle(landmarks) {
   }
   return { angle: angle, side: side, visibility: visibility };
 }
-// Show the knee angle under the video
+// Show the knee angle under the video, and return it (or null) for the counter
 function showKneeAngle(landmarks) {
   if (!landmarks) {
     angleText.textContent = "No person detected";
-    return;
+    return null;
   }
 
   const knee = getKneeAngle(landmarks);
   if (knee === null) {
     angleText.textContent = "Can't see your legs clearly";
-    return;
+    return null;
   }
 
   angleText.textContent =
     Math.round(knee.angle) + "° (" + knee.side + " leg, visibility " +
     knee.visibility.toFixed(2) + ")";
+  return knee;
+}
+// Up/down state machine: one rep = going down, then coming back up
+function updateRepCounter(angle) {
+  if (squatState === "up" && angle < DOWN_ANGLE) {
+    squatState = "down";
+  } else if (squatState === "down" && angle > UP_ANGLE) {
+    squatState = "up";
+    repCount = repCount + 1;
+  }
+
+  repText.textContent = repCount;
+  stateText.textContent = squatState;
 }
 // Runs every frame: detect pose, draw skeleton
 function detectLoop() {
@@ -153,7 +175,12 @@ function detectLoop() {
     }
 
     // numPoses is 1, so the person (if any) is always result.landmarks[0]
-    showKneeAngle(result.landmarks[0]);
+    const knee = showKneeAngle(result.landmarks[0]);
+
+    // Only count on frames we trust; junk frames leave the state unchanged
+    if (knee !== null) {
+      updateRepCounter(knee.angle);
+    }
   }
   requestAnimationFrame(detectLoop);
 }
