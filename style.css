@@ -25,3 +25,7 @@ body {
   height: 100%;
   transform: scaleX(-1);
 }
+
+#stats {
+  font-size: 1.3rem;
+}
