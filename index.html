@@ -25,6 +25,16 @@
     <p id="feedbackText">Do a squat to get feedback.</p>
   </div>
 
+  <!-- End of a workout: name + summary -->
+  <div id="session">
+    <label for="nameInput">First name:</label>
+    <input id="nameInput" type="text" maxlength="20" placeholder="e.g. Sam">
+    <button id="finishBtn">Finish workout</button>
+    <button id="nextBtn" hidden>Next person</button>
+    <p id="summaryText"></p>
+    <p class="note">Only your first name, reps and form score are saved. Video never leaves this device.</p>
+  </div>
+
   <script type="module" src="script.js"></script>
 </body>
 </html>

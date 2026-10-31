@@ -14,6 +14,10 @@ const repText = document.getElementById("repText");
 const stateText = document.getElementById("stateText");
 const goodRepText = document.getElementById("goodRepText");
 const feedbackText = document.getElementById("feedbackText");
+const nameInput = document.getElementById("nameInput");
+const finishBtn = document.getElementById("finishBtn");
+const nextBtn = document.getElementById("nextBtn");
+const summaryText = document.getElementById("summaryText");
 
 // Ignore a leg if any of its joints is less visible than this (0 to 1)
 const MIN_VISIBILITY = 0.5;
@@ -33,6 +37,7 @@ let squatState = "up";
 let repCount = 0;
 let goodRepCount = 0;
 let lowestAngle = 180; // smallest knee angle seen during the current rep
+let isCounting = true; // false after "Finish workout" until "Next person"
 
 let poseLandmarker;
 let drawingUtils;
@@ -192,6 +197,57 @@ function judgeRep(lowest) {
 
   goodRepText.textContent = goodRepCount;
 }
+// Good-form reps as a whole-number percentage
+function calculateFormScore() {
+  if (repCount === 0) {
+    return 0; // avoid dividing by zero
+  }
+  return Math.round((goodRepCount / repCount) * 100);
+}
+// End the workout and show the summary
+function finishWorkout() {
+  const name = nameInput.value.trim();
+
+  if (name === "") {
+    summaryText.textContent = "Please type your first name first.";
+    return;
+  }
+  if (repCount === 0) {
+    summaryText.textContent = "Do at least one squat before finishing.";
+    return;
+  }
+
+  isCounting = false;
+  const formScore = calculateFormScore();
+  summaryText.textContent =
+    "Well done " + name + "! " + repCount + " reps, " + goodRepCount +
+    " with good depth. Form score: " + formScore + "%";
+
+  nameInput.disabled = true;
+  finishBtn.hidden = true;
+  nextBtn.hidden = false;
+}
+// Reset everything so the next person can start fresh
+function resetWorkout() {
+  repCount = 0;
+  goodRepCount = 0;
+  squatState = "up";
+  lowestAngle = 180;
+
+  repText.textContent = repCount;
+  goodRepText.textContent = goodRepCount;
+  stateText.textContent = squatState;
+  feedbackText.textContent = "Do a squat to get feedback.";
+  feedbackText.className = "";
+
+  nameInput.value = "";
+  nameInput.disabled = false;
+  summaryText.textContent = "";
+  finishBtn.hidden = false;
+  nextBtn.hidden = true;
+
+  isCounting = true;
+}
 // Runs every frame: detect pose, draw skeleton
 function detectLoop() {
   if (video.currentTime !== lastVideoTime) {
@@ -209,13 +265,16 @@ function detectLoop() {
     // numPoses is 1, so the person (if any) is always result.landmarks[0]
     const knee = showKneeAngle(result.landmarks[0]);
 
-    // Only count on frames we trust; junk frames leave the state unchanged
-    if (knee !== null) {
+    // Only count on frames we trust, and only while a workout is running
+    if (knee !== null && isCounting) {
       updateRepCounter(knee.angle);
     }
   }
   requestAnimationFrame(detectLoop);
 }
+finishBtn.addEventListener("click", finishWorkout);
+nextBtn.addEventListener("click", resetWorkout);
+
 // When the button is clicked
 startBtn.addEventListener("click", async () => {
   startBtn.disabled = true;
