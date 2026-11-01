@@ -106,6 +106,19 @@ h1 {
   background: radial-gradient(circle, rgba(255, 106, 26, 0.2), rgba(0, 0, 0, 0.9));
 }
 
+/* Big 3-2-1 on top of the video */
+#countdown {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--accent);
+  font-size: 7rem;
+  font-weight: 800;
+}
+
 .overlay-title {
   margin: 0;
   font-size: 1.4rem;
@@ -150,13 +163,79 @@ h1 {
   text-align: center;
 }
 
+/* ---------- Progress ring ---------- */
+.ring-wrap {
+  position: relative;
+  width: 210px;
+  max-width: 100%;
+  aspect-ratio: 1;
+  margin: 8px auto 0;
+}
+
+.ring {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg); /* start filling from the top, not the right */
+}
+
+.ring-track,
+.ring-progress {
+  fill: none;
+  stroke-width: 10;
+}
+
+.ring-track {
+  stroke: var(--border);
+}
+
+.ring-progress {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+.ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Big enough to read from across the room */
 .big-number {
-  margin: 4px 0 0;
+  margin: 0;
   font-size: 5rem;
   font-weight: 800;
   line-height: 1;
   color: var(--accent);
+}
+
+.ring-target {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.timer {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums; /* digits stay the same width while ticking */
+}
+
+.mute-btn {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
 }
 
 .state-pill {
@@ -280,14 +359,81 @@ input:disabled {
   outline-offset: 2px;
 }
 
-#summaryText {
-  margin: 12px 0 0;
-  font-size: 1.1rem;
+.btn-wide {
+  width: 100%;
+  margin-top: 16px;
+}
+
+/* ---------- Workout setup ---------- */
+.field-label {
+  margin: 16px 0 6px;
   font-weight: 600;
 }
 
-#saveStatus {
+.target-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.target-btn {
+  padding: 14px 0;
+  font: inherit;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--text);
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.target-btn.selected {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.target-btn:focus-visible,
+.mute-btn:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.form-message {
+  margin: 8px 0 0;
+  color: var(--bad);
+}
+
+/* ---------- Finished card ---------- */
+.done-card {
+  text-align: center;
+  border-color: var(--accent);
+}
+
+.done-title {
+  margin: 0 0 12px;
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.done-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.done-number {
   margin: 4px 0 0;
+  font-size: 1.8rem;
+  font-weight: 800;
+}
+
+.done-card .button-row {
+  justify-content: center;
+}
+
+#saveStatus {
+  margin: 12px 0 0;
   color: var(--muted);
 }
 

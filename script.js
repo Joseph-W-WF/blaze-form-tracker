@@ -11,16 +11,30 @@ const ctx = canvas.getContext("2d");
 const startBtn = document.getElementById("startBtn");
 const statusText = document.getElementById("status");
 const startOverlay = document.getElementById("startOverlay");
+const countdownText = document.getElementById("countdown");
 const angleText = document.getElementById("angleText");
 const repText = document.getElementById("repText");
+const targetText = document.getElementById("targetText");
+const ringProgress = document.getElementById("ringProgress");
+const timerText = document.getElementById("timerText");
 const stateText = document.getElementById("stateText");
 const goodRepText = document.getElementById("goodRepText");
 const feedbackText = document.getElementById("feedbackText");
+const muteBtn = document.getElementById("muteBtn");
+const setupCard = document.getElementById("setupCard");
 const nameInput = document.getElementById("nameInput");
+const targetButtons = document.querySelectorAll(".target-btn");
+const startWorkoutBtn = document.getElementById("startWorkoutBtn");
+const setupMessage = document.getElementById("setupMessage");
 const finishBtn = document.getElementById("finishBtn");
-const nextBtn = document.getElementById("nextBtn");
-const summaryText = document.getElementById("summaryText");
+const doneCard = document.getElementById("doneCard");
+const doneTitle = document.getElementById("doneTitle");
+const doneReps = document.getElementById("doneReps");
+const doneScore = document.getElementById("doneScore");
+const doneTime = document.getElementById("doneTime");
 const saveStatus = document.getElementById("saveStatus");
+const retrySaveBtn = document.getElementById("retrySaveBtn");
+const nextBtn = document.getElementById("nextBtn");
 
 // Ignore a leg if any of its joints is less visible than this (0 to 1)
 const MIN_VISIBILITY = 0.5;
@@ -40,14 +54,28 @@ const GOOD_DEPTH_ANGLE = 95;
 const SMOOTHING_FRAMES = 5; // average the knee angle over this many frames
 const MIN_REP_MS = 500;     // a "rep" faster than this is noise, not a real squat
 
+// Length of the progress ring's outline (circumference = 2 x pi x radius 54)
+const RING_LENGTH = 2 * Math.PI * 54;
+
 let squatState = "up";
 let repCount = 0;
 let goodRepCount = 0;
 let lowestAngle = 180; // smallest knee angle seen during the current rep
-let isCounting = true; // false after "Finish workout" until "Next person"
+let isCounting = false; // only true while a workout is running
 let downStartTime = 0;  // when the current rep went "down" (milliseconds)
 let lockedSide = null;  // "left" or "right" once we've picked a leg to follow
 let recentAngles = [];  // last few knee angles, for smoothing
+
+// Workout mode
+let targetReps = 10;
+let workoutName = "";
+let workoutStartTime = 0;
+let workoutSeconds = 0;
+let timerInterval = null;
+
+// Sound
+let audioContext = null; // created on the first "Start workout" click
+let isMuted = false;
 
 let poseLandmarker;
 let drawingUtils;
@@ -219,6 +247,12 @@ function updateRepCounter(angle) {
       if (repDuration >= MIN_REP_MS) {
         repCount = repCount + 1;
         judgeRep(lowestAngle);
+        updateProgress();
+
+        // Target reached: the workout ends by itself
+        if (repCount >= targetReps) {
+          finishWorkout();
+        }
       } else {
         console.log("Ignored a too-fast rep: " + Math.round(repDuration) + " ms");
       }
@@ -236,10 +270,12 @@ function judgeRep(lowest) {
     goodRepCount = goodRepCount + 1;
     feedbackText.textContent = "Good depth! (lowest " + lowestRounded + "°)";
     feedbackText.className = "good";
+    beep(880); // high beep = good rep
   } else {
     feedbackText.textContent =
       "Go a bit lower - aim for thighs parallel (lowest " + lowestRounded + "°)";
     feedbackText.className = "bad";
+    beep(330); // low beep = rep counted, but go deeper
   }
 
   goodRepText.textContent = goodRepCount;
@@ -250,6 +286,133 @@ function calculateFormScore() {
     return 0; // avoid dividing by zero
   }
   return Math.round((goodRepCount / repCount) * 100);
+}
+
+// ---------- Workout mode ----------
+
+// Show only the cards for the current phase:
+// "waiting" (no camera yet), "setup", "countdown", "active" or "done"
+function showPhase(phase) {
+  setupCard.hidden = phase !== "setup";
+  countdownText.hidden = phase !== "countdown";
+  finishBtn.hidden = phase !== "active";
+  doneCard.hidden = phase !== "done";
+}
+// Highlight the chosen target button and update the ring
+function selectTarget(target) {
+  targetReps = target;
+
+  for (const button of targetButtons) {
+    const isChosen = Number(button.dataset.target) === target;
+    button.classList.toggle("selected", isChosen);
+    button.setAttribute("aria-pressed", String(isChosen));
+  }
+
+  targetText.textContent = "of " + targetReps;
+  updateProgress();
+}
+// Fill the ring: the outline is drawn as one dash, shifted by how much is left
+function updateProgress() {
+  const progress = Math.min(repCount / targetReps, 1);
+  ringProgress.style.strokeDasharray = RING_LENGTH;
+  ringProgress.style.strokeDashoffset = RING_LENGTH * (1 - progress);
+}
+// e.g. 75 seconds -> "1:15"
+function formatTime(totalSeconds) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes + ":" + String(seconds).padStart(2, "0");
+}
+function updateTimer() {
+  workoutSeconds = Math.floor((performance.now() - workoutStartTime) / 1000);
+  timerText.textContent = formatTime(workoutSeconds);
+}
+// Pause for a number of milliseconds (used by the countdown)
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+// Short beep made by the browser itself (Web Audio API), no sound files needed
+function beep(frequency) {
+  if (isMuted || audioContext === null) {
+    return;
+  }
+
+  const oscillator = audioContext.createOscillator(); // makes the tone
+  const volume = audioContext.createGain();            // controls loudness
+  oscillator.frequency.value = frequency;
+  oscillator.connect(volume);
+  volume.connect(audioContext.destination);
+
+  // Fade out quickly so it sounds like a "beep", not a click
+  const now = audioContext.currentTime;
+  volume.gain.setValueAtTime(0.2, now);
+  volume.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+  oscillator.start(now);
+  oscillator.stop(now + 0.15);
+}
+function toggleMute() {
+  isMuted = !isMuted;
+
+  if (isMuted) {
+    muteBtn.textContent = "🔇 Muted";
+  } else {
+    muteBtn.textContent = "🔊 Sound on";
+  }
+  muteBtn.setAttribute("aria-pressed", String(isMuted));
+}
+// Put all the counters and displays back to zero
+function resetCounters() {
+  repCount = 0;
+  goodRepCount = 0;
+  squatState = "up";
+  lowestAngle = 180;
+  lockedSide = null; // the next person might face the other way
+  recentAngles = [];
+  workoutSeconds = 0;
+
+  repText.textContent = repCount;
+  goodRepText.textContent = goodRepCount;
+  stateText.textContent = squatState;
+  timerText.textContent = formatTime(0);
+  updateProgress();
+}
+// Check the name, count down 3-2-1, then start counting
+async function startWorkout() {
+  const name = nameInput.value.trim();
+  if (name === "") {
+    setupMessage.textContent = "Please type your first name first.";
+    nameInput.focus();
+    return;
+  }
+  setupMessage.textContent = "";
+  workoutName = name;
+
+  // Browsers only allow sound after a click, so create the audio here
+  if (audioContext === null) {
+    audioContext = new AudioContext();
+  }
+
+  resetCounters();
+  feedbackText.textContent = "Get into position...";
+  feedbackText.className = "";
+  showPhase("countdown");
+
+  const steps = ["3", "2", "1", "Go!"];
+  for (const step of steps) {
+    countdownText.textContent = step;
+    if (step === "Go!") {
+      beep(880);
+    } else {
+      beep(520);
+    }
+    await wait(1000);
+  }
+
+  feedbackText.textContent = "Squat! Aim for " + targetReps + " reps.";
+  workoutStartTime = performance.now();
+  timerInterval = setInterval(updateTimer, 1000);
+  isCounting = true;
+  showPhase("active");
 }
 // Send one finished workout to Supabase (no video, just these four values)
 async function saveWorkout(name, reps, goodReps, formScore) {
@@ -275,65 +438,61 @@ async function saveWorkout(name, reps, goodReps, formScore) {
     throw new Error("status " + response.status + " " + details);
   }
 }
-// End the workout, show the summary and save it
-async function finishWorkout() {
-  const name = nameInput.value.trim();
-
-  if (name === "") {
-    summaryText.textContent = "Please type your first name first.";
-    return;
-  }
-  if (repCount === 0) {
-    summaryText.textContent = "Do at least one squat before finishing.";
-    return;
-  }
-
-  isCounting = false;
-  nameInput.disabled = true;
-  finishBtn.disabled = true; // stop double-clicks saving twice
-
-  const formScore = calculateFormScore();
-  summaryText.textContent =
-    "Well done " + name + "! " + repCount + " reps, " + goodRepCount +
-    " with good depth. Form score: " + formScore + "%";
+// Save the finished workout and show how it went
+async function saveCurrentWorkout() {
   saveStatus.textContent = "Saving...";
+  retrySaveBtn.hidden = true;
 
   try {
-    await saveWorkout(name, repCount, goodRepCount, formScore);
+    await saveWorkout(workoutName, repCount, goodRepCount, calculateFormScore());
     saveStatus.textContent = "Saved ✅";
-    finishBtn.hidden = true;
   } catch (err) {
     console.error("Save failed:", err);
-    saveStatus.textContent = "Couldn't save - press Finish workout to try again.";
-    finishBtn.disabled = false;
+    saveStatus.textContent = "Couldn't save.";
+    retrySaveBtn.hidden = false;
+  }
+}
+// Called when the target is reached or "Finish early" is pressed
+async function finishWorkout() {
+  // Already finished (e.g. target reached and button clicked at the same time)
+  if (!isCounting) {
+    return;
+  }
+  isCounting = false;
+  clearInterval(timerInterval);
+  updateTimer();
+
+  // Nothing to save if no reps were done
+  if (repCount === 0) {
+    feedbackText.textContent = "No reps counted - workout cancelled.";
+    feedbackText.className = "";
+    showPhase("setup");
+    return;
   }
 
-  nextBtn.hidden = false;
+  doneTitle.textContent = "Well done, " + workoutName + "!";
+  doneReps.textContent = repCount;
+  doneScore.textContent = calculateFormScore() + "%";
+  doneTime.textContent = formatTime(workoutSeconds);
+  showPhase("done");
+
+  // Two rising beeps to say "finished"
+  beep(660);
+  await wait(180);
+  beep(990);
+
+  await saveCurrentWorkout();
 }
-// Reset everything so the next person can start fresh
-function resetWorkout() {
-  repCount = 0;
-  goodRepCount = 0;
-  squatState = "up";
-  lowestAngle = 180;
-  lockedSide = null; // the next person might face the other way
-  recentAngles = [];
-
-  repText.textContent = repCount;
-  goodRepText.textContent = goodRepCount;
-  stateText.textContent = squatState;
-  feedbackText.textContent = "Do a squat to get feedback.";
-  feedbackText.className = "";
-
+// Get ready for the next person
+function nextPerson() {
+  resetCounters();
   nameInput.value = "";
-  nameInput.disabled = false;
-  summaryText.textContent = "";
   saveStatus.textContent = "";
-  finishBtn.hidden = false;
-  finishBtn.disabled = false;
-  nextBtn.hidden = true;
-
-  isCounting = true;
+  retrySaveBtn.hidden = true;
+  feedbackText.textContent = "Type your name and pick a target.";
+  feedbackText.className = "";
+  showPhase("setup");
+  nameInput.focus();
 }
 // Runs every frame: detect pose, draw skeleton
 function detectLoop() {
@@ -359,8 +518,20 @@ function detectLoop() {
   }
   requestAnimationFrame(detectLoop);
 }
+
+for (const button of targetButtons) {
+  button.addEventListener("click", () => {
+    selectTarget(Number(button.dataset.target));
+  });
+}
+startWorkoutBtn.addEventListener("click", startWorkout);
 finishBtn.addEventListener("click", finishWorkout);
-nextBtn.addEventListener("click", resetWorkout);
+retrySaveBtn.addEventListener("click", saveCurrentWorkout);
+nextBtn.addEventListener("click", nextPerson);
+muteBtn.addEventListener("click", toggleMute);
+
+// Draw the empty ring before anything starts
+updateProgress();
 
 // When the button is clicked
 startBtn.addEventListener("click", async () => {
@@ -372,6 +543,8 @@ startBtn.addEventListener("click", async () => {
     await startWebcam();
     statusText.textContent = "Ready";
     startOverlay.hidden = true; // show the live video
+    feedbackText.textContent = "Type your name and pick a target.";
+    showPhase("setup");
     detectLoop(); // start the per-frame detect-and-draw loop
   } catch (err) {
     statusText.textContent = "Error: " + err.message;
