@@ -7,34 +7,66 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Blaze Form Tracker</h1>
-  <button id="startBtn">Start camera</button>
-  <p id="status">Click start when ready.</p>
-  <p>Stand side-on to the camera with your whole body in view.</p>
+  <header class="topbar">
+    <span class="logo">🔥</span>
+    <div>
+      <h1>Blaze Form Tracker</h1>
+      <p class="tagline">Squat coach for the Blaze squad</p>
+    </div>
+  </header>
 
-  <div id="stage">
-    <video id="webcam" playsinline muted></video>
-    <canvas id="overlay"></canvas>
-  </div>
+  <main class="layout">
+    <!-- Left: camera -->
+    <section>
+      <div id="stage">
+        <video id="webcam" playsinline muted></video>
+        <canvas id="overlay"></canvas>
 
-  <!-- Live numbers (kept outside the mirrored canvas so text isn't backwards) -->
-  <div id="stats">
-    <p>Knee angle: <span id="angleText">--</span></p>
-    <p>Reps: <span id="repText">0</span> (position: <span id="stateText">up</span>)</p>
-    <p>Good-form reps: <span id="goodRepText">0</span></p>
-    <p id="feedbackText">Do a squat to get feedback.</p>
-  </div>
+        <!-- Covers the video until the camera is running (not mirrored) -->
+        <div id="startOverlay">
+          <p class="overlay-title">Ready to squat?</p>
+          <button id="startBtn" class="btn btn-primary">Start camera</button>
+          <p id="status">Video stays on this device.</p>
+        </div>
+      </div>
+      <p class="tip">Stand side-on to the camera with your whole body in view.</p>
+    </section>
 
-  <!-- End of a workout: name + summary -->
-  <div id="session">
-    <label for="nameInput">First name:</label>
-    <input id="nameInput" type="text" maxlength="20" placeholder="e.g. Sam">
-    <button id="finishBtn">Finish workout</button>
-    <button id="nextBtn" hidden>Next person</button>
-    <p id="summaryText"></p>
-    <p id="saveStatus"></p>
-    <p class="note">Only your first name, reps and form score are saved. Video never leaves this device.</p>
-  </div>
+    <!-- Right: live numbers (outside the mirrored canvas so text isn't backwards) -->
+    <section class="panel">
+      <div class="card reps-card">
+        <p class="stat-label">Reps</p>
+        <p id="repText" class="big-number">0</p>
+        <span id="stateText" class="state-pill">up</span>
+      </div>
+
+      <div class="stat-row">
+        <div class="card">
+          <p class="stat-label">Good form</p>
+          <p id="goodRepText" class="mid-number">0</p>
+        </div>
+        <div class="card">
+          <p class="stat-label">Knee angle</p>
+          <p id="angleText" class="angle-text">--</p>
+        </div>
+      </div>
+
+      <p id="feedbackText">Do a squat to get feedback.</p>
+
+      <!-- End of a workout: name + summary -->
+      <div class="card">
+        <label for="nameInput">First name</label>
+        <input id="nameInput" type="text" maxlength="20" placeholder="e.g. Sam">
+        <div class="button-row">
+          <button id="finishBtn" class="btn btn-primary">Finish workout</button>
+          <button id="nextBtn" class="btn btn-secondary" hidden>Next person</button>
+        </div>
+        <p id="summaryText"></p>
+        <p id="saveStatus"></p>
+        <p class="note">Only your first name, reps and form score are saved. Video never leaves this device.</p>
+      </div>
+    </section>
+  </main>
 
   <script type="module" src="script.js"></script>
 </body>

@@ -6,24 +6,34 @@
   <title>Blaze Form Tracker - Leader</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
-  <h1>Leader view</h1>
+<body class="admin-page">
+  <header class="topbar">
+    <span class="logo">🔥</span>
+    <div>
+      <h1>Leader view</h1>
+      <p class="tagline">Blaze squad workouts from the last 3 days</p>
+    </div>
+  </header>
 
-  <form id="loginForm">
-    <label for="emailInput">Email</label>
-    <input id="emailInput" type="email" autocomplete="username" required>
-    <label for="passwordInput">Password</label>
-    <input id="passwordInput" type="password" autocomplete="current-password" required>
-    <button type="submit">Log in</button>
-  </form>
+  <main class="admin">
+    <form id="loginForm" class="card">
+      <label for="emailInput">Email</label>
+      <input id="emailInput" type="email" autocomplete="username" required>
+      <label for="passwordInput">Password</label>
+      <input id="passwordInput" type="password" autocomplete="current-password" required>
+      <button type="submit" class="btn btn-primary">Log in</button>
+    </form>
 
-  <p id="message"></p>
+    <p id="message"></p>
 
-  <div id="results" hidden>
-    <button id="logoutBtn">Log out</button>
-    <p class="note">Workouts are deleted automatically after 3 days.</p>
-    <div id="dayList"></div>
-  </div>
+    <div id="results" hidden>
+      <div class="results-bar">
+        <p class="note">Workouts are deleted automatically after 3 days.</p>
+        <button id="logoutBtn" class="btn btn-secondary">Log out</button>
+      </div>
+      <div id="dayList"></div>
+    </div>
+  </main>
 
   <script type="module" src="admin.js"></script>
 </body>

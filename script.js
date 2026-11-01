@@ -10,6 +10,7 @@ const canvas = document.getElementById("overlay");
 const ctx = canvas.getContext("2d");
 const startBtn = document.getElementById("startBtn");
 const statusText = document.getElementById("status");
+const startOverlay = document.getElementById("startOverlay");
 const angleText = document.getElementById("angleText");
 const repText = document.getElementById("repText");
 const stateText = document.getElementById("stateText");
@@ -324,6 +325,7 @@ startBtn.addEventListener("click", async () => {
     statusText.textContent = "Starting camera...";
     await startWebcam();
     statusText.textContent = "Ready";
+    startOverlay.hidden = true; // show the live video
     detectLoop(); // start the per-frame detect-and-draw loop
   } catch (err) {
     statusText.textContent = "Error: " + err.message;
