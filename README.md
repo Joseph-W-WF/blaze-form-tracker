@@ -2,10 +2,6 @@
 
 A browser-based AI squat coach for my Boys' Brigade Blaze squad (ages ~13). It counts squat reps through the webcam, checks squat depth, gives feedback after every rep, and lets the squad leader see who has done their workout — **without the video ever leaving the device**.
 
-<!-- TODO after deploying: **Live demo:** [PASTE_YOUR_VERCEL_LINK_HERE](PASTE_YOUR_VERCEL_LINK_HERE) -->
-
-<!-- TODO after recording: ![Blaze Form Tracker demo](docs/demo.gif) -->
-
 ---
 
 ## Features
@@ -68,7 +64,7 @@ v1 assumes the camera sees the person **side-on**. MediaPipe gives 2D screen pos
 | AI | MediaPipe Tasks Vision `0.10.14` (from jsDelivr CDN) | Pre-trained, fast, runs fully in the browser |
 | Database + auth | Supabase (Postgres, Row Level Security, Auth, `pg_cron`) | Free tier, security rules enforced by the database |
 | API calls | Browser `fetch()` | No extra library; every request is visible and explainable |
-| Hosting | Vercel | Free HTTPS hosting with automatic deploys from GitHub |
+| Hosting | Any static host (e.g. Vercel) | Plain files, no build step; HTTPS is needed for camera access |
 
 ## Privacy & safety
 
