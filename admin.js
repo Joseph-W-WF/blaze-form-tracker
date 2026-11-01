@@ -109,6 +109,7 @@ function showWorkouts(workouts) {
   // Each entry in the Map is a [day, workoutsForThatDay] pair
   for (const [day, dayWorkouts] of days) {
     const section = document.createElement("section");
+    section.className = "card day-card";
 
     const heading = document.createElement("h2");
     heading.textContent = day + " (" + dayWorkouts.length + " done)";
@@ -125,6 +126,7 @@ function showWorkouts(workouts) {
     section.appendChild(list);
 
     const copyBtn = document.createElement("button");
+    copyBtn.className = "btn btn-primary";
     copyBtn.textContent = "Copy summary";
     copyBtn.addEventListener("click", async () => {
       try {

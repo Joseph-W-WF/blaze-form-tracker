@@ -1,14 +1,81 @@
-body {
-  font-family: system-ui, sans-serif;
-  background: #111;
-  color: #eee;
-  padding: 16px;
+/* Colour palette: change the theme here */
+:root {
+  --bg: #0f1115;
+  --card: #1a1d24;
+  --border: #2a2f3a;
+  --text: #f2f4f8;
+  --muted: #9aa3b2;
+  --accent: #ff6a1a;      /* "Blaze" orange */
+  --accent-dark: #e05510;
+  --good: #22c55e;
+  --bad: #f59e0b;
+  --radius: 14px;
 }
 
+* {
+  box-sizing: border-box;
+}
+
+/* Our display rules would otherwise override the hidden attribute */
+[hidden] {
+  display: none !important;
+}
+
+body {
+  margin: 0;
+  padding: 16px;
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ---------- Header ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 1100px;
+  margin: 0 auto 16px;
+}
+
+.logo {
+  font-size: 2.2rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.tagline {
+  margin: 2px 0 0;
+  color: var(--muted);
+}
+
+/* ---------- Layout: stacked on phones, two columns on laptops ---------- */
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+@media (min-width: 900px) {
+  .layout {
+    grid-template-columns: 3fr 2fr;
+    align-items: start;
+  }
+}
+
+/* ---------- Camera ---------- */
 #stage {
   position: relative;
-  width: 640px;
-  max-width: 100%;
+  width: 100%;
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
 }
 
 #webcam {
@@ -26,29 +93,265 @@ body {
   transform: scaleX(-1);
 }
 
-#stats {
-  font-size: 1.3rem;
+#startOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
+  text-align: center;
+  background: radial-gradient(circle, rgba(255, 106, 26, 0.2), rgba(0, 0, 0, 0.9));
 }
 
-/* Feedback colours for the last rep */
-.good {
-  color: #4caf50;
+.overlay-title {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
 }
 
-.bad {
-  color: #ff9800;
+#status {
+  margin: 0;
+  color: var(--muted);
 }
 
-#session {
-  margin-top: 16px;
+.tip {
+  margin: 8px 4px 0;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
-#loginForm label {
+/* ---------- Cards and stats ---------- */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card {
+  padding: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.stat-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.reps-card {
+  position: relative;
+  text-align: center;
+}
+
+/* Big enough to read from across the room */
+.big-number {
+  margin: 4px 0 0;
+  font-size: 5rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.state-pill {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--border);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.stat-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.mid-number {
+  margin: 4px 0 0;
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: var(--good);
+}
+
+.angle-text {
+  margin: 4px 0 0;
+}
+
+/* ---------- Feedback banner (JS adds "good" or "bad") ---------- */
+#feedbackText {
+  margin: 0;
+  padding: 14px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 1.15rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+#feedbackText.good {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: var(--good);
+  color: var(--good);
+}
+
+#feedbackText.bad {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
+/* ---------- Forms and buttons ---------- */
+label {
   display: block;
-  margin-top: 8px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+input {
+  width: 100%;
+  padding: 12px 14px;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+input:disabled {
+  opacity: 0.6;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.btn {
+  padding: 12px 20px;
+  font: inherit;
+  font-weight: 700;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #111; /* dark text on orange is easier to read than white */
+}
+
+.btn-primary:hover {
+  background: var(--accent-dark);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+#summaryText {
+  margin: 12px 0 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+#saveStatus {
+  margin: 4px 0 0;
+  color: var(--muted);
 }
 
 .note {
+  margin: 12px 0 0;
+  color: var(--muted);
   font-size: 0.85rem;
-  color: #aaa;
+}
+
+/* ---------- Leader page ---------- */
+.admin-page .topbar,
+.admin {
+  max-width: 640px;
+}
+
+.admin {
+  margin: 0 auto;
+}
+
+#loginForm label {
+  margin-top: 12px;
+}
+
+#loginForm .btn {
+  width: 100%;
+  margin-top: 16px;
+}
+
+#message {
+  color: var(--muted);
+}
+
+.results-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.results-bar .note {
+  margin: 0;
+}
+
+.day-card {
+  margin-bottom: 12px;
+}
+
+.day-card h2 {
+  margin: 0 0 8px;
+  font-size: 1.2rem;
+}
+
+.day-card ul {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.day-card li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.day-card li:last-child {
+  border-bottom: none;
 }
