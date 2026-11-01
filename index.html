@@ -22,6 +22,9 @@
         <video id="webcam" playsinline muted></video>
         <canvas id="overlay"></canvas>
 
+        <!-- Big 3-2-1 numbers on top of the video (not mirrored) -->
+        <div id="countdown" hidden></div>
+
         <!-- Covers the video until the camera is running (not mirrored) -->
         <div id="startOverlay">
           <p class="overlay-title">Ready to squat?</p>
@@ -35,9 +38,23 @@
     <!-- Right: live numbers (outside the mirrored canvas so text isn't backwards) -->
     <section class="panel">
       <div class="card reps-card">
-        <p class="stat-label">Reps</p>
-        <p id="repText" class="big-number">0</p>
+        <button id="muteBtn" class="mute-btn" aria-pressed="false">🔊 Sound on</button>
         <span id="stateText" class="state-pill">up</span>
+        <p class="stat-label">Reps</p>
+
+        <!-- Progress ring: the orange circle fills up towards the target -->
+        <div class="ring-wrap">
+          <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="ring-track" cx="60" cy="60" r="54"></circle>
+            <circle id="ringProgress" class="ring-progress" cx="60" cy="60" r="54"></circle>
+          </svg>
+          <div class="ring-center">
+            <p id="repText" class="big-number">0</p>
+            <p id="targetText" class="ring-target">of 10</p>
+          </div>
+        </div>
+
+        <p class="timer">⏱ <span id="timerText">0:00</span></p>
       </div>
 
       <div class="stat-row">
@@ -51,19 +68,50 @@
         </div>
       </div>
 
-      <p id="feedbackText">Do a squat to get feedback.</p>
+      <p id="feedbackText">Start the camera to begin.</p>
 
-      <!-- End of a workout: name + summary -->
-      <div class="card">
+      <!-- Setup: name + target, shown once the camera is running -->
+      <div id="setupCard" class="card" hidden>
         <label for="nameInput">First name</label>
         <input id="nameInput" type="text" maxlength="20" placeholder="e.g. Sam">
-        <div class="button-row">
-          <button id="finishBtn" class="btn btn-primary">Finish workout</button>
-          <button id="nextBtn" class="btn btn-secondary" hidden>Next person</button>
+
+        <p class="field-label">Target reps</p>
+        <div class="target-row">
+          <button class="target-btn selected" data-target="10" aria-pressed="true">10</button>
+          <button class="target-btn" data-target="15" aria-pressed="false">15</button>
+          <button class="target-btn" data-target="20" aria-pressed="false">20</button>
         </div>
-        <p id="summaryText"></p>
-        <p id="saveStatus"></p>
+
+        <button id="startWorkoutBtn" class="btn btn-primary btn-wide">Start workout</button>
+        <p id="setupMessage" class="form-message"></p>
         <p class="note">Only your first name, reps and form score are saved. Video never leaves this device.</p>
+      </div>
+
+      <!-- During the workout -->
+      <button id="finishBtn" class="btn btn-secondary btn-wide" hidden>Finish early</button>
+
+      <!-- After the workout -->
+      <div id="doneCard" class="card done-card" hidden>
+        <p id="doneTitle" class="done-title">Well done!</p>
+        <div class="done-stats">
+          <div>
+            <p class="stat-label">Reps</p>
+            <p id="doneReps" class="done-number">0</p>
+          </div>
+          <div>
+            <p class="stat-label">Good form</p>
+            <p id="doneScore" class="done-number">0%</p>
+          </div>
+          <div>
+            <p class="stat-label">Time</p>
+            <p id="doneTime" class="done-number">0:00</p>
+          </div>
+        </div>
+        <p id="saveStatus"></p>
+        <div class="button-row">
+          <button id="retrySaveBtn" class="btn btn-secondary" hidden>Try saving again</button>
+          <button id="nextBtn" class="btn btn-primary">Next person</button>
+        </div>
       </div>
     </section>
   </main>
