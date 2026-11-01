@@ -3,6 +3,7 @@ import {
   FilesetResolver,
   DrawingUtils
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
 // Grab the HTML elements we need
 const video = document.getElementById("webcam");
 const canvas = document.getElementById("overlay");
@@ -18,6 +19,7 @@ const nameInput = document.getElementById("nameInput");
 const finishBtn = document.getElementById("finishBtn");
 const nextBtn = document.getElementById("nextBtn");
 const summaryText = document.getElementById("summaryText");
+const saveStatus = document.getElementById("saveStatus");
 
 // Ignore a leg if any of its joints is less visible than this (0 to 1)
 const MIN_VISIBILITY = 0.5;
@@ -204,8 +206,32 @@ function calculateFormScore() {
   }
   return Math.round((goodRepCount / repCount) * 100);
 }
-// End the workout and show the summary
-function finishWorkout() {
+// Send one finished workout to Supabase (no video, just these four values)
+async function saveWorkout(name, reps, goodReps, formScore) {
+  const response = await fetch(SUPABASE_URL + "/rest/v1/workouts", {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      "Content-Type": "application/json",
+      // We're not allowed to read the table, so don't ask for the row back
+      Prefer: "return=minimal"
+    },
+    body: JSON.stringify({
+      name: name,
+      reps: reps,
+      good_reps: goodReps,
+      form_score: formScore
+    })
+  });
+
+  // fetch only throws on network failure, so check the status ourselves
+  if (!response.ok) {
+    const details = await response.text();
+    throw new Error("status " + response.status + " " + details);
+  }
+}
+// End the workout, show the summary and save it
+async function finishWorkout() {
   const name = nameInput.value.trim();
 
   if (name === "") {
@@ -218,13 +244,25 @@ function finishWorkout() {
   }
 
   isCounting = false;
+  nameInput.disabled = true;
+  finishBtn.disabled = true; // stop double-clicks saving twice
+
   const formScore = calculateFormScore();
   summaryText.textContent =
     "Well done " + name + "! " + repCount + " reps, " + goodRepCount +
     " with good depth. Form score: " + formScore + "%";
+  saveStatus.textContent = "Saving...";
 
-  nameInput.disabled = true;
-  finishBtn.hidden = true;
+  try {
+    await saveWorkout(name, repCount, goodRepCount, formScore);
+    saveStatus.textContent = "Saved ✅";
+    finishBtn.hidden = true;
+  } catch (err) {
+    console.error("Save failed:", err);
+    saveStatus.textContent = "Couldn't save - press Finish workout to try again.";
+    finishBtn.disabled = false;
+  }
+
   nextBtn.hidden = false;
 }
 // Reset everything so the next person can start fresh
@@ -243,7 +281,9 @@ function resetWorkout() {
   nameInput.value = "";
   nameInput.disabled = false;
   summaryText.textContent = "";
+  saveStatus.textContent = "";
   finishBtn.hidden = false;
+  finishBtn.disabled = false;
   nextBtn.hidden = true;
 
   isCounting = true;
