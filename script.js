@@ -36,11 +36,18 @@ const UP_ANGLE = 160;   // above this you are back "up"
 // Form rule: the lowest knee angle in a rep must reach this for good depth
 const GOOD_DEPTH_ANGLE = 95;
 
+// Noise guards
+const SMOOTHING_FRAMES = 5; // average the knee angle over this many frames
+const MIN_REP_MS = 500;     // a "rep" faster than this is noise, not a real squat
+
 let squatState = "up";
 let repCount = 0;
 let goodRepCount = 0;
 let lowestAngle = 180; // smallest knee angle seen during the current rep
 let isCounting = true; // false after "Finish workout" until "Next person"
+let downStartTime = 0;  // when the current rep went "down" (milliseconds)
+let lockedSide = null;  // "left" or "right" once we've picked a leg to follow
+let recentAngles = [];  // last few knee angles, for smoothing
 
 let poseLandmarker;
 let drawingUtils;
@@ -116,18 +123,48 @@ function legVisibility(landmarks, leg) {
     landmarks[leg.ankle].visibility
   );
 }
-// Knee angle of the clearest leg, or null if neither leg is clear enough
+// Average of the last few angles, so one noisy frame can't cause a rep
+function smoothAngle(angle) {
+  recentAngles.push(angle);
+  if (recentAngles.length > SMOOTHING_FRAMES) {
+    recentAngles.shift(); // drop the oldest
+  }
+
+  let total = 0;
+  for (const recent of recentAngles) {
+    total = total + recent;
+  }
+  return total / recentAngles.length;
+}
+// Smoothed knee angle of the leg we're following, or null if it isn't clear
 function getKneeAngle(landmarks) {
   const leftVisibility = legVisibility(landmarks, LEFT_LEG);
   const rightVisibility = legVisibility(landmarks, RIGHT_LEG);
 
-  // Side view: the leg nearer the camera is usually the clearer one
+  // First clear frame: lock onto the clearer leg (side view: the near leg)
+  if (lockedSide === null) {
+    if (leftVisibility >= MIN_VISIBILITY && leftVisibility >= rightVisibility) {
+      lockedSide = "left";
+    } else if (rightVisibility >= MIN_VISIBILITY) {
+      lockedSide = "right";
+    } else {
+      return null;
+    }
+  }
+
+  // Only switch legs if the locked one has really gone and the other is clear
+  if (lockedSide === "left" && leftVisibility < MIN_VISIBILITY && rightVisibility >= MIN_VISIBILITY) {
+    lockedSide = "right";
+    recentAngles = []; // don't mix angles from two different legs
+  } else if (lockedSide === "right" && rightVisibility < MIN_VISIBILITY && leftVisibility >= MIN_VISIBILITY) {
+    lockedSide = "left";
+    recentAngles = [];
+  }
+
   let leg = LEFT_LEG;
-  let side = "left";
   let visibility = leftVisibility;
-  if (rightVisibility > leftVisibility) {
+  if (lockedSide === "right") {
     leg = RIGHT_LEG;
-    side = "right";
     visibility = rightVisibility;
   }
 
@@ -143,7 +180,7 @@ function getKneeAngle(landmarks) {
   if (angle === null) {
     return null;
   }
-  return { angle: angle, side: side, visibility: visibility };
+  return { angle: smoothAngle(angle), side: lockedSide, visibility: visibility };
 }
 // Show the knee angle under the video, and return it (or null) for the counter
 function showKneeAngle(landmarks) {
@@ -168,6 +205,7 @@ function updateRepCounter(angle) {
   if (squatState === "up" && angle < DOWN_ANGLE) {
     squatState = "down";
     lowestAngle = angle; // start tracking the bottom of this rep
+    downStartTime = performance.now();
   } else if (squatState === "down") {
     // Remember the deepest point while we're down
     if (angle < lowestAngle) {
@@ -176,8 +214,14 @@ function updateRepCounter(angle) {
 
     if (angle > UP_ANGLE) {
       squatState = "up";
-      repCount = repCount + 1;
-      judgeRep(lowestAngle);
+      const repDuration = performance.now() - downStartTime;
+
+      if (repDuration >= MIN_REP_MS) {
+        repCount = repCount + 1;
+        judgeRep(lowestAngle);
+      } else {
+        console.log("Ignored a too-fast rep: " + Math.round(repDuration) + " ms");
+      }
     }
   }
 
@@ -272,6 +316,8 @@ function resetWorkout() {
   goodRepCount = 0;
   squatState = "up";
   lowestAngle = 180;
+  lockedSide = null; // the next person might face the other way
+  recentAngles = [];
 
   repText.textContent = repCount;
   goodRepText.textContent = goodRepCount;
