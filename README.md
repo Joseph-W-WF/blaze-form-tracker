@@ -1,0 +1,186 @@
+# 🔥 Blaze Form Tracker
+
+A browser-based AI squat coach for my Boys' Brigade Blaze squad (ages ~13). It counts squat reps through the webcam, checks squat depth, gives feedback after every rep, and lets the squad leader see who has done their workout — **without the video ever leaving the device**.
+
+<!-- TODO after deploying: **Live demo:** [PASTE_YOUR_VERCEL_LINK_HERE](PASTE_YOUR_VERCEL_LINK_HERE) -->
+
+<!-- TODO after recording: ![Blaze Form Tracker demo](docs/demo.gif) -->
+
+---
+
+## Features
+
+- **Live pose tracking**: skeleton overlay on the webcam feed, running entirely in the browser.
+- **Rep counter**: counts a rep for each full down-then-up squat.
+- **Depth check**: each rep is judged "Good depth" or "Go a bit lower", with a colour-coded banner.
+- **Session summary**: reps, good-form reps and a form score (% of reps with good depth).
+- **Saved results**: first name, reps and score are saved when a workout is finished.
+- **Leader view** (`admin.html`): login-protected page showing the last 3 days of workouts, grouped by day, with a **Copy summary** button for the squad group chat.
+- **Responsive design**: two columns on a laptop, one column on a phone; big numbers readable from a few metres away.
+
+## How it works
+
+```
+Webcam frame
+   │
+   ▼
+MediaPipe Pose Landmarker (in the browser)  →  33 body landmarks (x, y, visibility)
+   │
+   ▼
+Knee angle  =  angle at the knee between hip and ankle
+   │           (landmarks converted to pixels first; noisy frames filtered and smoothed)
+   ▼
+Rep counter (up/down state machine)  →  depth check  →  feedback + totals
+   │
+   ▼  "Finish workout"
+Supabase (name, reps, good reps, score only)  →  Leader view
+```
+
+1. **Pose detection**: [MediaPipe Pose Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker) (lite model) is a **pre-trained** model. It runs on the device using WebAssembly + GPU. No model training was done for this project.
+2. **Knee angle**: hip, knee and ankle positions come back as fractions (0–1) of the video's width and height. They are converted to pixels first, because the video is wider than it is tall; skipping this step would distort every angle. The angle is then calculated with the dot product of the two "arrows" knee→hip and knee→ankle.
+3. **Ignoring bad data**:
+   - A leg is only used if all three joints have a visibility score of at least **0.5**.
+   - The app **locks onto one leg** instead of switching every frame.
+   - The angle is **averaged over the last 5 frames**.
+4. **Rep counting** uses two thresholds (**hysteresis**), like a thermostat:
+   - below **110°** → "down"
+   - above **160°** → "up", and a rep is counted
+   - the 50° gap means small jitter can't flip the state back and forth.
+   - a "rep" faster than **0.5 s** is ignored as noise.
+5. **Depth rule**: the lowest knee angle reached during the rep must be **≤ 95°** (roughly thighs parallel) to count as good form.
+6. **Saving**: a plain `fetch()` POST to Supabase's REST API. No client library is used.
+
+### Camera position: side view
+
+v1 assumes the camera sees the person **side-on**. MediaPipe gives 2D screen positions, and from the front your thigh points straight at the camera, so the knee angle barely changes on screen. From the side, the angle clearly swings from ~175° (standing) to ~90° (parallel). Detecting knees caving inwards needs a **front** view, so that rule is planned for v2.
+
+## Tech stack
+
+| Part | Choice | Why |
+|---|---|---|
+| Front end | Plain HTML, CSS, JavaScript (ES modules) | No frameworks or build tools, so every line is understandable |
+| AI | MediaPipe Tasks Vision `0.10.14` (from jsDelivr CDN) | Pre-trained, fast, runs fully in the browser |
+| Database + auth | Supabase (Postgres, Row Level Security, Auth, `pg_cron`) | Free tier, security rules enforced by the database |
+| API calls | Browser `fetch()` | No extra library; every request is visible and explainable |
+| Hosting | Vercel | Free HTTPS hosting with automatic deploys from GitHub |
+
+## Privacy & safety
+
+The users are children, so privacy was designed in from the start:
+
+- **Video never leaves the device.** Pose detection runs in the browser. No video or images are recorded, uploaded or stored, and no body landmarks are saved.
+- **Data minimisation.** Only **first name** (max 20 characters), **reps**, **good-form reps** and **form score** are saved, plus the time of saving.
+- **Storage limitation.** A nightly database job (`pg_cron`, 03:00 UTC) deletes workouts older than **3 days**.
+- **Access control.** Results can only be read by the logged-in squad leader. The public key used by the app is **insert-only**.
+- **No tracking.** No analytics, cookies or third-party fonts. The only external requests are loading MediaPipe and talking to Supabase.
+- The login token is kept in memory only, so closing the tab logs the leader out.
+
+## Security design
+
+There is no custom back-end server: security is enforced by **Postgres Row Level Security (RLS)** in Supabase.
+
+| Who | Can insert | Can read | Can update / delete |
+|---|---|---|---|
+| Anyone with the app (public key) | ✅ | ❌ | ❌ |
+| Logged-in leader | ❌ | ✅ | ❌ |
+| Nightly cleanup job | n/a | n/a | deletes rows older than 3 days |
+
+- **Least privilege:** default permissions are revoked, then only the needed ones are granted.
+- **Check constraints** reject junk data (e.g. name 1–20 chars, reps 1–500, good reps ≤ reps, score 0–100), even if someone bypasses the page.
+- `created_at` is set by the **server**, so dates can't be faked.
+- **Public sign-ups are disabled**, so the leader is the only account.
+- The publishable key in `config.js` is **meant to be public**; no secret/service-role key is in this repo.
+- **XSS protection:** names are typed by the public, so the leader page always shows them with `textContent`, never `innerHTML`.
+
+See [`supabase/setup.sql`](supabase/setup.sql) for the full setup.
+
+## Project structure
+
+```
+index.html          Main app: camera, live stats, finish workout
+script.js           Pose detection, knee angle, rep counter, form check, saving
+admin.html          Leader view: login and results
+admin.js            Supabase Auth login, load workouts, group by day, copy summary
+style.css           Shared styles for both pages (CSS variables, responsive grid)
+config.js           Supabase project URL + publishable key
+supabase/setup.sql  Table, constraints, RLS policies and 3-day cleanup job
+```
+
+## Running it yourself
+
+1. **Supabase**
+   1. Create a free project at [supabase.com](https://supabase.com).
+   2. In **SQL Editor**, run [`supabase/setup.sql`](supabase/setup.sql).
+   3. In **Authentication → Users**, add one user (the leader) with **Auto Confirm User** ticked.
+   4. In **Authentication** settings, turn **off** "Allow new users to sign up".
+2. **Config**: put your **Project URL** (without `/rest/v1/`) and **publishable/anon key** in `config.js`. Never use the secret/service-role key.
+3. **Run locally**: the camera and ES modules need a local web server, not double-clicking the file. For example:
+   - VS Code **Live Server** extension → "Open with Live Server", or
+   - `python -m http.server` in the project folder, then open `http://localhost:8000`.
+4. **Deploy (optional)**: import the GitHub repo into [Vercel](https://vercel.com) with Framework Preset **Other** and no build command.
+
+### Using the app
+1. Click **Start camera** and allow camera access.
+2. Stand **side-on** to the camera with your **whole body** in view.
+3. Squat! Watch the rep count and feedback banner.
+4. Type your first name and click **Finish workout**, then **Next person**.
+5. The leader opens `/admin.html` and logs in to see results.
+
+### Tuning
+All thresholds are constants at the top of `script.js`:
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `MIN_VISIBILITY` | 0.5 | Ignore a leg if any joint is less visible than this |
+| `DOWN_ANGLE` | 110° | Below this = "down" |
+| `UP_ANGLE` | 160° | Above this = "up" (rep counted) |
+| `GOOD_DEPTH_ANGLE` | 95° | Lowest angle needed for good depth |
+| `SMOOTHING_FRAMES` | 5 | Frames averaged for the knee angle |
+| `MIN_REP_MS` | 500 | Faster "reps" are ignored as noise |
+
+## Known issues & limitations
+
+### Rep counter sometimes double-counts (major)
+**What happens:** occasionally one squat is counted twice, once on the way down and once on the way up. Before the fix, reps were also counted while standing still, and some shallow squats were judged as good depth.
+
+**Investigation:** a frozen photo of a squat still produced changing angles and extra reps. A perfect system would give a constant angle, so the noise comes from the pose estimates, not from movement. From the side, the far leg is hidden, so the model **guesses** its position, and the code was switching between the real leg and the guessed leg from frame to frame (e.g. 170° ↔ 100°). That is a big enough jump to cross both thresholds.
+
+**Fix attempted** (commit `a1eb630`):
+1. **Leg locking**: follow one leg for the whole workout instead of choosing per frame.
+2. **Smoothing**: average the angle over the last 5 frames.
+3. **Minimum rep time**: ignore "reps" faster than 0.5 s.
+
+**Result:** false counting while standing still is greatly reduced, but occasional double counts remain.
+
+**Next steps to investigate:**
+- During a deep squat the near leg's visibility may briefly drop below 0.5, causing a legitimate switch to the guessed far leg mid-rep. Possible fixes: never switch legs while "down", or require several low-visibility frames in a row before switching.
+- Try the more accurate `pose_landmarker_full` model (slower) and compare.
+- Tune the thresholds with more real squat data from different people and camera positions.
+
+### Other limitations
+- **Side view only.** Knee cave (knees moving inwards) can't be detected from the side; planned for v2 with a front-view mode.
+- **2D estimates.** Angles depend on the camera being roughly level and perpendicular to the person. Lighting and baggy clothing also reduce accuracy.
+- **Public submissions.** Anyone with the link can submit a workout (but cannot read any). Junk is limited by the database constraints and removed after 3 days.
+- **One person at a time.** The model tracks a single person (`numPoses: 1`).
+
+## Roadmap (v2)
+
+- Fix the remaining double-count issue (see above)
+- Front-view mode with a knee-cave check
+- More exercises (e.g. lunges, push-ups)
+- Simple weekly streaks for the squad
+
+## What I learned
+
+- Turning AI model output into reliable app behaviour takes as much work as running the model: unit conversion, confidence filtering, smoothing and state machines.
+- Hysteresis and state machines for turning noisy signals into clean events.
+- Debugging by experiment (the frozen-photo test) instead of guessing.
+- Database-level security (RLS, least privilege, constraints) for an app with no back-end server.
+- Designing for privacy when the users are children (data minimisation, storage limitation, access control).
+- A Git workflow with feature branches, conventional commits and pull requests.
+
+## Credits
+
+- Pose detection: [MediaPipe](https://github.com/google-ai-edge/mediapipe) by Google (Apache 2.0).
+- Database and auth: [Supabase](https://supabase.com).
+- Built as a solo portfolio project for my Boys' Brigade Blaze squad.
